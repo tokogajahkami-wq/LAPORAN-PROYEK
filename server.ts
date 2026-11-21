@@ -345,8 +345,35 @@ async function startServer() {
   } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { middlewareMode: true, hmr: false, ws: false },
       appType: 'spa',
+      plugins: [
+        {
+          name: 'proyekkas-disable-hmr-ws-client',
+          enforce: 'post',
+          transform(code, id) {
+            const cleanId = id.split('?')[0].replace(/\\/g, '/');
+            if (cleanId.endsWith('/vite/dist/client/client.mjs')) {
+              return {
+                code: code
+                  .replace(
+                    'transport.connect(createHMRHandler(handleMessage));',
+                    '/* HMR WebSocket disabled in AI Studio middleware mode */',
+                  )
+                  .replace(
+                    'else throw new SendBeforeConnectError("send was called before connect");',
+                    'else return;',
+                  )
+                  .replace(
+                    'else throw new SendBeforeConnectError("invoke was called before connect");',
+                    'else return;',
+                  ),
+                map: null,
+              };
+            }
+          },
+        },
+      ],
     });
     app.use(vite.middlewares);
   }
