@@ -127,8 +127,15 @@ export const ScanNotaModal: React.FC<ScanNotaModalProps> = ({
             'Endpoint /api/scan-nota tidak ditemukan di server (404). Pastikan fungsi API server sudah ikut ter-deploy.'
           );
         }
+        const plainSnippet = rawBody
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 140);
         throw new Error(
-          `Server AI mengembalikan respons tidak valid (HTTP ${res.status}). Silakan coba lagi atau lengkapi rincian nota secara manual.`
+          plainSnippet
+            ? `Server AI error (HTTP ${res.status}): ${plainSnippet}`
+            : `Server AI mengembalikan respons tidak valid (HTTP ${res.status}). Silakan coba lagi atau lengkapi rincian nota secara manual.`
         );
       }
 

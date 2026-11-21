@@ -3,7 +3,7 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { processScanNota, type ScanNotaRequestBody } from './api/_lib/scanNotaCore';
+import { processScanNota, type ScanNotaRequestBody } from './api/scan-nota';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
