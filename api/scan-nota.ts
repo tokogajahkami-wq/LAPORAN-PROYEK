@@ -39,6 +39,9 @@ function getAiClient(): GoogleGenAI {
       headers: {
         'User-Agent': 'aistudio-build',
       },
+      retryOptions: {
+        attempts: 1,
+      },
     },
   });
 }
@@ -134,55 +137,59 @@ export async function processScanNota(
 
     const candidateModels = ['gemini-3.1-flash-lite', 'gemini-4-hydrogen'] as const;
     const reqStartedAt = Date.now();
-    const maxTotalBudgetMs = options?.maxTotalBudgetMs ?? 55000;
-    const maxAttemptMs = options?.attemptTimeoutMs ?? 25000;
+    const maxTotalBudgetMs = options?.maxTotalBudgetMs ?? 22000;
+    const maxAttemptMs = options?.attemptTimeoutMs ?? 9000;
     let response: Awaited<ReturnType<typeof ai.models.generateContent>> | null = null;
     let lastError: unknown = null;
 
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
-      new Promise<T>((resolve, reject) => {
-        const timer = setTimeout(() => {
+    const runWithAbortTimeout = async (
+      ms: number,
+      label: string,
+      fn: (signal: AbortSignal) => Promise<Awaited<ReturnType<typeof ai.models.generateContent>>>
+    ) => {
+      const controller = new AbortController();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
           reject(new Error(`Timeout (${Math.round(ms / 1000)} dtk) saat menghubungi ${label}`));
         }, ms);
-        promise.then(
-          (val) => {
-            clearTimeout(timer);
-            resolve(val);
-          },
-          (err) => {
-            clearTimeout(timer);
-            reject(err);
-          }
-        );
       });
+      try {
+        return await Promise.race([fn(controller.signal), timeoutPromise]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
 
-    const isTransientError = (msg: string) =>
-      /503|UNAVAILABLE|high demand|overloaded|429|RESOURCE_EXHAUSTED|Timeout|ETIMEDOUT|ECONNRESET/i.test(
+    const shouldFallbackToNextModel = (msg: string) =>
+      /503|UNAVAILABLE|high demand|overloaded|429|RESOURCE_EXHAUSTED|404|NOT_FOUND|Timeout|AbortError|aborted|ETIMEDOUT|ECONNRESET/i.test(
         msg
       );
 
     const maxRounds = 2;
     outer: for (let round = 0; round < maxRounds; round++) {
       if (round > 0) {
-        if (Date.now() - reqStartedAt > 15000) break;
-        await sleep(1500);
+        if (Date.now() - reqStartedAt > 6000) break;
+        await sleep(700);
       }
 
       for (const modelName of candidateModels) {
         const remaining = maxTotalBudgetMs - (Date.now() - reqStartedAt);
-        if (remaining < 8000) break outer;
+        if (remaining < 4000) break outer;
 
         const attemptTimeoutMs = Math.min(maxAttemptMs, remaining);
         const startedAt = Date.now();
         try {
-          response = await withTimeout(
+          response = await runWithAbortTimeout(attemptTimeoutMs, modelName, (signal) =>
             ai.models.generateContent({
               model: modelName,
               contents: requestConfig.contents,
               config: {
                 ...requestConfig.config,
+                abortSignal: signal,
                 thinkingConfig: {
                   thinkingLevel:
                     modelName === 'gemini-3.1-flash-lite'
@@ -190,9 +197,7 @@ export async function processScanNota(
                       : ThinkingLevel.LOW,
                 },
               },
-            }),
-            attemptTimeoutMs,
-            modelName
+            })
           );
           console.log(
             `[scan-nota] OK via ${modelName} (round ${round + 1}) in ${Date.now() - startedAt}ms`
@@ -205,11 +210,11 @@ export async function processScanNota(
           console.warn(
             `[scan-nota] ${modelName} round ${round + 1} failed (${Date.now() - startedAt}ms): ${errMsg.slice(0, 140)}`
           );
-          if (!isTransientError(errMsg)) {
+          if (!shouldFallbackToNextModel(errMsg)) {
             throw err;
           }
-          if (Date.now() - startedAt < 8000) {
-            await sleep(600);
+          if (Date.now() - startedAt < 2500) {
+            await sleep(300);
           }
         }
       }
@@ -299,7 +304,7 @@ export async function processScanNota(
       };
     }
 
-    if (/Timeout|ETIMEDOUT/i.test(rawMessage)) {
+    if (/Timeout|AbortError|aborted|ETIMEDOUT/i.test(rawMessage)) {
       console.warn(`[scan-nota] Upstream timeout (504): ${rawMessage.slice(0, 140)}`);
       return {
         status: 504,
