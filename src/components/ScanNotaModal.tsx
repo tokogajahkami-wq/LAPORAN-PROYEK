@@ -110,12 +110,35 @@ export const ScanNotaModal: React.FC<ScanNotaModalProps> = ({
         window.clearTimeout(timeoutId);
       }
 
-      const payload = await res.json();
-      if (!res.ok) {
-        throw new Error(payload?.error || 'Gagal membaca nota dengan Gemini AI.');
+      const rawBody = await res.text();
+      let payload: Record<string, unknown> | null = null;
+      try {
+        payload = rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : null;
+      } catch {
+        payload = null;
       }
 
-      const result = payload as ScannedReceiptResult;
+      if (!res.ok) {
+        if (payload && typeof payload.error === 'string' && payload.error) {
+          throw new Error(payload.error);
+        }
+        if (res.status === 404) {
+          throw new Error(
+            'Endpoint /api/scan-nota tidak ditemukan di server (404). Pastikan fungsi API server sudah ikut ter-deploy.'
+          );
+        }
+        throw new Error(
+          `Server AI mengembalikan respons tidak valid (HTTP ${res.status}). Silakan coba lagi atau lengkapi rincian nota secara manual.`
+        );
+      }
+
+      if (!payload) {
+        throw new Error(
+          'Respons server Scan Nota kosong atau bukan JSON valid. Silakan coba lagi atau isi rincian secara manual.'
+        );
+      }
+
+      const result = payload as unknown as ScannedReceiptResult;
       setTanggal(result.tanggal || defaultDate);
       setNamaToko(result.nama_toko || '');
       setKategori(
