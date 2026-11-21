@@ -1,0 +1,10 @@
+{
+  "name": "Remix ProyekKas \u0026 Absensi",
+  "description": "Aplikasi Mobile-First PWA untuk manajemen keuangan proyek konstruksi (Kas Proyek/KBS, Rembes, Pengajuan Cashflow), Absensi \u0026 Penggajian Tukang Mingguan, dan AI Scan Nota Fisik.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

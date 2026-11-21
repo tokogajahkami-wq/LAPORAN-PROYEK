@@ -1,0 +1,364 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function hasParentWorkspace(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid;
+    }
+
+    function hasParentProject(userId, projectId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/projects/$(projectId)) &&
+        get(/databases/$(database)/documents/users/$(userId)/projects/$(projectId)).data.ownerId == request.auth.uid;
+    }
+
+    function hasParentPeriod(userId, periodId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/periods/$(periodId)) &&
+        get(/databases/$(database)/documents/users/$(userId)/periods/$(periodId)).data.ownerId == request.auth.uid;
+    }
+
+    function hasParentTransaction(userId, txId) {
+      return exists(/databases/$(database)/documents/users/$(userId)/transactions/$(txId)) &&
+        get(/databases/$(database)/documents/users/$(userId)/transactions/$(txId)).data.ownerId == request.auth.uid;
+    }
+
+    function isValidPrintConfig(cfg) {
+      return cfg is map &&
+        cfg.keys().hasAll([
+          'kota', 'tanggalCetak', 'mengetahuiNama', 'mengetahuiJabatan',
+          'disetujuiNama', 'disetujuiJabatan', 'dibuatNama', 'dibuatJabatan', 'sertakanFotoNota'
+        ]) &&
+        cfg.keys().hasOnly([
+          'kota', 'tanggalCetak', 'mengetahuiNama', 'mengetahuiJabatan',
+          'disetujuiNama', 'disetujuiJabatan', 'dibuatNama', 'dibuatJabatan', 'sertakanFotoNota'
+        ]) &&
+        cfg.kota is string && cfg.kota.size() <= 120 &&
+        cfg.tanggalCetak is string && cfg.tanggalCetak.size() <= 20 &&
+        cfg.mengetahuiNama is string && cfg.mengetahuiNama.size() <= 120 &&
+        cfg.mengetahuiJabatan is string && cfg.mengetahuiJabatan.size() <= 120 &&
+        cfg.disetujuiNama is string && cfg.disetujuiNama.size() <= 120 &&
+        cfg.disetujuiJabatan is string && cfg.disetujuiJabatan.size() <= 120 &&
+        cfg.dibuatNama is string && cfg.dibuatNama.size() <= 120 &&
+        cfg.dibuatJabatan is string && cfg.dibuatJabatan.size() <= 120 &&
+        cfg.sertakanFotoNota is bool;
+    }
+
+    function isValidWorkspace(data, userId) {
+      return data is map &&
+        data.keys().hasAll([
+          'ownerId', 'email', 'roleMode', 'activeProjectId', 'activePeriodId',
+          'printConfig', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'email', 'displayName', 'roleMode', 'activeProjectId',
+          'activePeriodId', 'printConfig', 'lastDriveBackupAt', 'lastDriveBackupName',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId == userId &&
+        isValidId(data.ownerId) &&
+        data.email is string && data.email.size() <= 320 &&
+        (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 120)) &&
+        data.roleMode in ['mandor', 'admin'] &&
+        isValidId(data.activeProjectId) &&
+        isValidId(data.activePeriodId) &&
+        isValidPrintConfig(data.printConfig) &&
+        (!('lastDriveBackupAt' in data) || (data.lastDriveBackupAt is string && data.lastDriveBackupAt.size() <= 64)) &&
+        (!('lastDriveBackupName' in data) || (data.lastDriveBackupName is string && data.lastDriveBackupName.size() <= 200)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidProject(data, userId, projectId) {
+      return data is map &&
+        data.keys().hasAll(['ownerId', 'id', 'nama', 'lokasi', 'pelaksana', 'mandor', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'id', 'nama', 'lokasi', 'pelaksana', 'mandor', 'createdAt', 'updatedAt']) &&
+        data.ownerId == userId &&
+        data.id == projectId &&
+        isValidId(data.id) &&
+        data.nama is string && data.nama.size() >= 1 && data.nama.size() <= 120 &&
+        data.lokasi is string && data.lokasi.size() <= 160 &&
+        data.pelaksana is string && data.pelaksana.size() <= 120 &&
+        data.mandor is string && data.mandor.size() <= 120 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWorker(data, userId, workerId) {
+      return data is map &&
+        data.keys().hasAll(['ownerId', 'projectId', 'id', 'nama', 'jabatan', 'upahHarian', 'mandor', 'aktif', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'projectId', 'id', 'nama', 'jabatan', 'upahHarian', 'mandor', 'aktif', 'createdAt', 'updatedAt']) &&
+        data.ownerId == userId &&
+        isValidId(data.projectId) &&
+        data.id == workerId &&
+        isValidId(data.id) &&
+        data.nama is string && data.nama.size() >= 1 && data.nama.size() <= 100 &&
+        data.jabatan in ['MANDOR', 'TUKANG', 'TENAGA'] &&
+        data.upahHarian is number && data.upahHarian >= 0 &&
+        data.mandor is string && data.mandor.size() <= 100 &&
+        data.aktif is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidPeriod(data, userId, periodId) {
+      return data is map &&
+        data.keys().hasAll([
+          'ownerId', 'projectId', 'id', 'mingguKe', 'labelPeriodeAbsensi', 'labelPeriodeKbs',
+          'attendanceDates', 'sisaSaldoLalu', 'tanggalSaldoLalu', 'dropingList', 'cashflowItems',
+          'attendance', 'kasbonByWorker', 'keteranganByWorker', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'projectId', 'id', 'mingguKe', 'labelPeriodeAbsensi', 'labelPeriodeKbs',
+          'attendanceDates', 'sisaSaldoLalu', 'tanggalSaldoLalu', 'dropingList', 'cashflowItems',
+          'saldoLaluOverride', 'attendance', 'kasbonByWorker', 'keteranganByWorker', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId == userId &&
+        isValidId(data.projectId) &&
+        data.id == periodId &&
+        isValidId(data.id) &&
+        data.mingguKe is number && data.mingguKe >= 1 &&
+        data.labelPeriodeAbsensi is string && data.labelPeriodeAbsensi.size() >= 1 && data.labelPeriodeAbsensi.size() <= 120 &&
+        data.labelPeriodeKbs is string && data.labelPeriodeKbs.size() >= 1 && data.labelPeriodeKbs.size() <= 120 &&
+        data.attendanceDates is list && data.attendanceDates.size() == 7 &&
+        data.attendanceDates[0] is string && data.attendanceDates[0].size() <= 20 &&
+        data.sisaSaldoLalu is number &&
+        data.tanggalSaldoLalu is string && data.tanggalSaldoLalu.size() <= 20 &&
+        data.dropingList is list && data.dropingList.size() <= 100 &&
+        (data.dropingList.size() == 0 || data.dropingList[0] is map) &&
+        data.cashflowItems is list && data.cashflowItems.size() <= 150 &&
+        (data.cashflowItems.size() == 0 || data.cashflowItems[0] is map) &&
+        (!('saldoLaluOverride' in data) || data.saldoLaluOverride == null || data.saldoLaluOverride is number) &&
+        data.attendance is map &&
+        data.kasbonByWorker is map &&
+        data.keteranganByWorker is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTransaction(data, userId, txId) {
+      return data is map &&
+        data.keys().hasAll([
+          'ownerId', 'projectId', 'periodId', 'id', 'tanggal', 'namaToko',
+          'kategori', 'sumberDana', 'items', 'totalNominal', 'hasFotoNota',
+          'txCreatedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerId', 'projectId', 'periodId', 'id', 'tanggal', 'namaToko',
+          'kategori', 'sumberDana', 'items', 'totalNominal', 'hasFotoNota',
+          'catatan', 'namaPengaju', 'rembesStatus', 'txCreatedAt', 'createdAt', 'updatedAt'
+        ]) &&
+        data.ownerId == userId &&
+        isValidId(data.projectId) &&
+        isValidId(data.periodId) &&
+        data.id == txId &&
+        isValidId(data.id) &&
+        data.tanggal is string && data.tanggal.size() <= 20 &&
+        data.namaToko is string && data.namaToko.size() >= 1 && data.namaToko.size() <= 160 &&
+        data.kategori in [
+          'MATERIAL & ALAT BANTU',
+          'BBM',
+          'OPERASIONAL & LISTRIK',
+          'KOORDINASI / LINGKUNGAN',
+          'ALAT',
+          'POTONGAN SUBKON',
+          'LAIN-LAIN'
+        ] &&
+        data.sumberDana in ['KBS', 'REMBES'] &&
+        data.items is list && data.items.size() <= 100 &&
+        (data.items.size() == 0 || data.items[0] is map) &&
+        data.totalNominal is number && data.totalNominal >= 0 &&
+        data.hasFotoNota is bool &&
+        (!('catatan' in data) || (data.catatan is string && data.catatan.size() <= 500)) &&
+        (!('namaPengaju' in data) || (data.namaPengaju is string && data.namaPengaju.size() <= 120)) &&
+        (!('rembesStatus' in data) || data.rembesStatus in ['Menunggu', 'Disetujui', 'Lunas']) &&
+        data.txCreatedAt is string && data.txCreatedAt.size() <= 64 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidReceipt(data, userId, receiptId) {
+      return data is map &&
+        data.keys().hasAll(['ownerId', 'projectId', 'transactionId', 'id', 'dataUrl', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'projectId', 'transactionId', 'id', 'dataUrl', 'createdAt', 'updatedAt']) &&
+        data.ownerId == userId &&
+        isValidId(data.projectId) &&
+        isValidId(data.transactionId) &&
+        data.id == receiptId &&
+        isValidId(data.id) &&
+        data.dataUrl is string && data.dataUrl.size() >= 1 && data.dataUrl.size() <= 350000 &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isValidId(userId) &&
+        isOwner(userId) &&
+        isValidWorkspace(incoming(), userId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(userId) &&
+        isOwner(userId) &&
+        isValidWorkspace(incoming(), userId) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['roleMode', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['activeProjectId', 'activePeriodId', 'printConfig', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['roleMode', 'activeProjectId', 'activePeriodId', 'printConfig', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['activePeriodId', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['printConfig', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['lastDriveBackupAt', 'lastDriveBackupName', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'displayName', 'roleMode', 'activeProjectId', 'activePeriodId', 'printConfig', 'updatedAt'])
+        );
+      allow delete: if isValidId(userId) && isOwner(userId);
+
+      match /projects/{projectId} {
+        allow get: if isValidId(userId) && isValidId(projectId) && isOwner(userId) && hasParentWorkspace(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(projectId) &&
+          isOwner(userId) &&
+          isValidProject(incoming(), userId, projectId) &&
+          hasParentWorkspace(userId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(projectId) &&
+          isOwner(userId) &&
+          isValidProject(incoming(), userId, projectId) &&
+          hasParentWorkspace(userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().id == existing().id &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['nama', 'lokasi', 'pelaksana', 'mandor', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(projectId) && isOwner(userId) && hasParentWorkspace(userId);
+      }
+
+      match /workers/{workerId} {
+        allow get: if isValidId(userId) && isValidId(workerId) && isOwner(userId) && hasParentWorkspace(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(workerId) &&
+          isOwner(userId) &&
+          isValidWorker(incoming(), userId, workerId) &&
+          hasParentWorkspace(userId) &&
+          hasParentProject(userId, incoming().projectId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(workerId) &&
+          isOwner(userId) &&
+          isValidWorker(incoming(), userId, workerId) &&
+          hasParentWorkspace(userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().projectId == existing().projectId &&
+          incoming().id == existing().id &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['nama', 'jabatan', 'upahHarian', 'mandor', 'aktif', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(workerId) && isOwner(userId) && hasParentWorkspace(userId);
+      }
+
+      match /periods/{periodId} {
+        allow get: if isValidId(userId) && isValidId(periodId) && isOwner(userId) && hasParentWorkspace(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(periodId) &&
+          isOwner(userId) &&
+          isValidPeriod(incoming(), userId, periodId) &&
+          hasParentWorkspace(userId) &&
+          hasParentProject(userId, incoming().projectId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(periodId) &&
+          isOwner(userId) &&
+          isValidPeriod(incoming(), userId, periodId) &&
+          hasParentWorkspace(userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().projectId == existing().projectId &&
+          incoming().id == existing().id &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['sisaSaldoLalu', 'tanggalSaldoLalu', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['dropingList', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['cashflowItems', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['saldoLaluOverride', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['attendance', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['kasbonByWorker', 'updatedAt']) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['keteranganByWorker', 'updatedAt'])
+          );
+        allow delete: if isValidId(userId) && isValidId(periodId) && isOwner(userId) && hasParentWorkspace(userId);
+      }
+
+      match /transactions/{txId} {
+        allow get: if isValidId(userId) && isValidId(txId) && isOwner(userId) && hasParentWorkspace(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(txId) &&
+          isOwner(userId) &&
+          isValidTransaction(incoming(), userId, txId) &&
+          hasParentWorkspace(userId) &&
+          hasParentProject(userId, incoming().projectId) &&
+          hasParentPeriod(userId, incoming().periodId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if isValidId(userId) && isValidId(txId) &&
+          isOwner(userId) &&
+          isValidTransaction(incoming(), userId, txId) &&
+          hasParentWorkspace(userId) &&
+          incoming().ownerId == existing().ownerId &&
+          incoming().projectId == existing().projectId &&
+          incoming().periodId == existing().periodId &&
+          incoming().id == existing().id &&
+          incoming().txCreatedAt == existing().txCreatedAt &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          (!('rembesStatus' in existing()) || existing().rembesStatus != 'Lunas') &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['rembesStatus', 'updatedAt']);
+        allow delete: if isValidId(userId) && isValidId(txId) && isOwner(userId) && hasParentWorkspace(userId);
+      }
+
+      match /receipts/{receiptId} {
+        allow get: if isValidId(userId) && isValidId(receiptId) && isOwner(userId) && hasParentWorkspace(userId);
+        allow list: if isOwner(userId) && resource.data.ownerId == request.auth.uid;
+        allow create: if isValidId(userId) && isValidId(receiptId) &&
+          isOwner(userId) &&
+          isValidReceipt(incoming(), userId, receiptId) &&
+          hasParentWorkspace(userId) &&
+          hasParentTransaction(userId, incoming().transactionId) &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(receiptId) && isOwner(userId) && hasParentWorkspace(userId);
+      }
+    }
+  }
+}

@@ -1,0 +1,409 @@
+{
+  "entities": {
+    "UserWorkspace": {
+      "title": "UserWorkspace",
+      "description": "Root workspace state and preferences for an authenticated user.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the workspace owner."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 320
+        },
+        "displayName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "roleMode": {
+          "type": "string",
+          "enum": ["mandor", "admin"]
+        },
+        "activeProjectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "activePeriodId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "printConfig": {
+          "type": "object"
+        },
+        "lastDriveBackupAt": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "lastDriveBackupName": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "email", "roleMode", "activeProjectId", "activePeriodId", "printConfig", "createdAt", "updatedAt"]
+    },
+    "Project": {
+      "title": "Project",
+      "description": "Construction project metadata.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nama": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "lokasi": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "pelaksana": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "mandor": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "id", "nama", "lokasi", "pelaksana", "mandor", "createdAt", "updatedAt"]
+    },
+    "Worker": {
+      "title": "Worker",
+      "description": "Construction worker master record belonging to a project.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nama": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "jabatan": {
+          "type": "string",
+          "enum": ["MANDOR", "TUKANG", "TENAGA"]
+        },
+        "upahHarian": {
+          "type": "number"
+        },
+        "mandor": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "aktif": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "projectId", "id", "nama", "jabatan", "upahHarian", "mandor", "aktif", "createdAt", "updatedAt"]
+    },
+    "Period": {
+      "title": "Period",
+      "description": "Weekly project accounting and attendance period.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mingguKe": {
+          "type": "number"
+        },
+        "labelPeriodeAbsensi": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "labelPeriodeKbs": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "attendanceDates": {
+          "type": "array"
+        },
+        "sisaSaldoLalu": {
+          "type": "number"
+        },
+        "tanggalSaldoLalu": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "dropingList": {
+          "type": "array"
+        },
+        "cashflowItems": {
+          "type": "array"
+        },
+        "saldoLaluOverride": {
+          "type": "number"
+        },
+        "attendance": {
+          "type": "object"
+        },
+        "kasbonByWorker": {
+          "type": "object"
+        },
+        "keteranganByWorker": {
+          "type": "object"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "projectId",
+        "id",
+        "mingguKe",
+        "labelPeriodeAbsensi",
+        "labelPeriodeKbs",
+        "attendanceDates",
+        "sisaSaldoLalu",
+        "tanggalSaldoLalu",
+        "dropingList",
+        "cashflowItems",
+        "attendance",
+        "kasbonByWorker",
+        "keteranganByWorker",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "KBS or Rembes expense transaction belonging to a project period.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "periodId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tanggal": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "namaToko": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "kategori": {
+          "type": "string",
+          "enum": [
+            "MATERIAL & ALAT BANTU",
+            "BBM",
+            "OPERASIONAL & LISTRIK",
+            "KOORDINASI / LINGKUNGAN",
+            "ALAT",
+            "POTONGAN SUBKON",
+            "LAIN-LAIN"
+          ]
+        },
+        "sumberDana": {
+          "type": "string",
+          "enum": ["KBS", "REMBES"]
+        },
+        "items": {
+          "type": "array"
+        },
+        "totalNominal": {
+          "type": "number"
+        },
+        "hasFotoNota": {
+          "type": "boolean"
+        },
+        "catatan": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "namaPengaju": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "rembesStatus": {
+          "type": "string",
+          "enum": ["Menunggu", "Disetujui", "Lunas"]
+        },
+        "txCreatedAt": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "projectId",
+        "periodId",
+        "id",
+        "tanggal",
+        "namaToko",
+        "kategori",
+        "sumberDana",
+        "items",
+        "totalNominal",
+        "hasFotoNota",
+        "txCreatedAt",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "ReceiptPhoto": {
+      "title": "ReceiptPhoto",
+      "description": "Compressed receipt photo associated with an expense transaction.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "projectId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "transactionId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "dataUrl": {
+          "type": "string",
+          "maxLength": 350000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerId", "projectId", "transactionId", "id", "dataUrl", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserWorkspace" },
+      "description": "Authenticated user's private workspace settings and active project/period pointers."
+    },
+    "/users/{userId}/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/Project" },
+      "description": "Construction projects owned by the authenticated user."
+    },
+    "/users/{userId}/workers/{workerId}": {
+      "schema": { "$ref": "#/entities/Worker" },
+      "description": "Workers belonging to the user's projects."
+    },
+    "/users/{userId}/periods/{periodId}": {
+      "schema": { "$ref": "#/entities/Period" },
+      "description": "Weekly accounting and attendance periods belonging to the user's projects."
+    },
+    "/users/{userId}/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "KBS and Rembes expense transactions belonging to a project period."
+    },
+    "/users/{userId}/receipts/{receiptId}": {
+      "schema": { "$ref": "#/entities/ReceiptPhoto" },
+      "description": "Compressed receipt images linked to expense transactions."
+    }
+  }
+}
